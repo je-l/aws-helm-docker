@@ -1,6 +1,7 @@
 // Fetch latest kubectl, helm and AWS cli versions and print them to stdout
+// Example:
 // $ ./fetchversions
-//
+// KUBECTL_VERSION=v1.17.12 HELM_VERSION=v3.3.3 AWS_CLI_VERSION=2.0.50
 package main
 
 import (
@@ -111,5 +112,5 @@ func main() {
 		fmt.Printf("%s ", version)
 	}
 
-	fmt.Printf("\n")
+	fmt.Println()
 }
