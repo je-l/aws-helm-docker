@@ -1,3 +1,6 @@
+// Fetch latest kubectl, helm and AWS cli versions and print them to stdout
+// $ ./fetchversions
+//
 package main
 
 import (
@@ -10,7 +13,7 @@ import (
 	"github.com/heroku/docker-registry-client/registry"
 )
 
-func fetchAwsCliVersion() *semver.Version {
+func fetchAwsCliVersion(versions chan string) {
 	docker, err := registry.New("https://registry-1.docker.io", "", "")
 
 	if err != nil {
@@ -35,10 +38,10 @@ func fetchAwsCliVersion() *semver.Version {
 
 	sort.Sort(parsedTags)
 
-	return parsedTags[len(parsedTags)-1]
+	versions <- "AWS_CLI_VERSION=" + parsedTags[len(parsedTags)-1].Original()
 }
 
-func fetchKubectlVersion(client *github.Client) *semver.Version {
+func fetchKubeVersion(client *github.Client, versions chan string) {
 	releases, _, error := client.Repositories.ListReleases(
 		context.Background(),
 		"kubernetes",
@@ -57,6 +60,7 @@ func fetchKubectlVersion(client *github.Client) *semver.Version {
 
 		// pin kubectl version to 17 because of AWS EKS suppored
 		// kubernetes versions
+		// https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html
 		if version.Prerelease() == "" && version.Minor() <= 17 {
 			newReleases = append(newReleases, version)
 		}
@@ -64,10 +68,10 @@ func fetchKubectlVersion(client *github.Client) *semver.Version {
 
 	sort.Sort(newReleases)
 
-	return newReleases[len(newReleases)-1]
+	versions <- "KUBECTL_VERSION=" + newReleases[len(newReleases)-1].Original()
 }
 
-func fetchHelmVersion(client *github.Client) *semver.Version {
+func fetchHelmVersion(client *github.Client, versions chan string) {
 	releases, _, error := client.Repositories.ListReleases(
 		context.Background(),
 		"helm",
@@ -90,16 +94,22 @@ func fetchHelmVersion(client *github.Client) *semver.Version {
 	}
 
 	sort.Sort(newReleases)
-
-	return newReleases[len(newReleases)-1]
+	versions <- "HELM_VERSION=" + newReleases[len(newReleases)-1].Original()
 }
 
 func main() {
-	awsCliVersion := fetchAwsCliVersion()
+	versions := make(chan string)
+
+	go fetchAwsCliVersion(versions)
 
 	githubClient := github.NewClient(nil)
-	kubectlVersion := fetchKubectlVersion(githubClient)
-	helmVersion := fetchHelmVersion(githubClient)
+	go fetchKubeVersion(githubClient, versions)
+	go fetchHelmVersion(githubClient, versions)
 
-	fmt.Printf("AWS_CLI_VERSION=%s HELM_VERSION=%s KUBECTL_VERSION=%s", awsCliVersion, helmVersion, kubectlVersion)
+	for i := 0; i < 3; i++ {
+		version := <-versions
+		fmt.Printf("%s ", version)
+	}
+
+	fmt.Printf("\n")
 }
