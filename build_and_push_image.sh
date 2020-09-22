@@ -14,3 +14,5 @@ docker build \
   --build-arg AWS_CLI_VERSION="$AWS_CLI_VERSION" \
   -t "$IMAGE_NAME" \
   .
+
+docker push $IMAGE_NAME
