@@ -57,12 +57,16 @@ func fetchKubeVersion(client *github.Client, versions chan string) {
 	var newReleases semver.Collection = make([]*semver.Version, 0)
 
 	for _, release := range releases {
-		version := semver.MustParse(release.GetName())
+		if *release.Prerelease {
+			continue
+		}
+
+		version := semver.MustParse(*release.TagName)
 
 		// pin kubectl version to 17 because of AWS EKS suppored
 		// kubernetes versions
 		// https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html
-		if version.Prerelease() == "" && version.Minor() <= 17 {
+		if version.Minor() <= 17 {
 			newReleases = append(newReleases, version)
 		}
 	}
